@@ -1,3 +1,4 @@
 numpy>=1.24,<3
 opencv-python-headless>=4.8
 imageio>=2.31
+OpenEXR>=3.2
