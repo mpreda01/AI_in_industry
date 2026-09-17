@@ -18,12 +18,12 @@ set -euo pipefail
 # CONFIGURAZIONE - modifica questi valori secondo la tua struttura di cartelle
 # ==============================================================================
 VENV_NAME="industry_venv"
-VENV_DIR="${HOME}/scratch.hpc/matteo.preda/industry/AI_in_industry/${VENV_NAME}"
-REQUIREMENTS_FILE="${HOME}/scratch.hpc/matteo.preda/industry/AI_in_industry/requirements.txt"          # path a requirements.txt
-SCRIPT_DIR="${HOME}/scratch.hpc/matteo.preda/industry/AI_in_industry/part_1"             # cartella con preprocess_synscapes.py + labels.py
+VENV_DIR="/scratch.hpc/matteo.preda/industry/AI_in_industry/${VENV_NAME}"
+REQUIREMENTS_FILE="/scratch.hpc/matteo.preda/industry/AI_in_industry/requirements.txt"          # path a requirements.txt
+SCRIPT_DIR="/scratch.hpc/matteo.preda/industry/AI_in_industry/part_1"             # cartella con preprocess_synscapes.py + labels.py
 
-SYNSCAPES_ROOT="${HOME}/scratch.hpc/matteo.preda/industry/synscapes/Synscapes"        # dataset originale
-OUTPUT_ROOT="${HOME}/scratch.hpc/matteo.preda/industry/synscapes/synscapes_processed"    # output preprocessato
+SYNSCAPES_ROOT="/scratch.hpc/matteo.preda/industry/synscapes/Synscapes"        # dataset originale
+OUTPUT_ROOT="/scratch.hpc/matteo.preda/industry/synscapes/synscapes_processed"    # output preprocessato
 
 D_MAX=80.0
 # rtx2080: CPU singola quad-core -> allineo i worker alle CPU richieste sopra
