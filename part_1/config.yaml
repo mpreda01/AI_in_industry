@@ -1,0 +1,131 @@
+# Experiment configuration: multi-task semantic segmentation + monocular depth estimation.
+#
+# One experiment = one complete, versioned config file: copy this file to configs/<experiment>.yaml and edit it.
+# Every key is required (there are no hidden defaults); unknown keys and wrong types are rejected at start-up.
+# Run with:
+#     python -m source.scripts.train --config config.yaml
+# Single values can be overridden from the command line, e.g. for a sweep:
+#     python -m source.scripts.train --config config.yaml optimization.optimizer_lr=0.001 experiment.tasks=[semseg]
+#
+# Environment variables ($VAR / ${VAR}) are expanded when the file is loaded; an unset variable is an error.
+# Keys marked [OPEN] are open decisions from CLAUDE.md: the value is the template default, not a tuned choice.
+# Full documentation: doc/training_system.md
+
+experiment:
+  # Run name: part of the output directory and of the W&B run name.
+  name: branched_deeplabv3p
+  # Seeds python, numpy, torch and the dataloader workers. Logged with every run.
+  seed: 42
+  # Tasks trained by this run: [semseg], [depth] or [semseg, depth].
+  tasks: [semseg, depth]
+  # Checkpoint (.ckpt) to resume from, or null. A resumed run still writes to a new run directory.
+  resume: null
+
+# --- Paths ------------------------------------------------------------------------------------
+paths:
+  # Root of the dataset (contains train/ val/ test/). Read from the environment, never hardcoded.
+  dataset_root: ${DATASET_ROOT}
+  # Each run creates <output_dir>/<experiment.name>_seed<seed>_<timestamp>/ and never overwrites another run.
+  output_dir: ${SAVEDIR}
+
+# --- Dataset ----------------------------------------------------------------------------------
+data:
+  dataset: miniscapes           # Synscapes subset; the split (20000/2500/2500) is fixed by the directory layout
+  workers: 16
+  workers_validation: 4
+  batch_size_validation: 8
+
+# --- Model ------------------------------------------------------------------------------------
+model:
+  # Architecture -> supported task sets (all share the same encoder, split and data pipeline):
+  #   deeplabv3p            tasks [semseg] or [depth]  : 0. single-task baselines
+  #   deeplabv3p            tasks [semseg, depth]      : 1. joint (shared encoder/ASPP/decoder, n+1 channels)
+  #   deeplabv3p_multitask  tasks [semseg, depth]      : 2. branched (shared encoder, per-task ASPP + decoder)
+  #   adaptive_depth        tasks [depth]              : 3. depth as classification with adaptive bins
+  model_name: deeplabv3p_multitask
+  model_encoder_name: resnet18  # resnet18 | resnet34
+  pretrained: false             # [OPEN] ImageNet weights; keep identical across compared runs
+
+  # adaptive_depth only (configuration, not constants in the code).
+  num_bins: 256                 # must be a perfect square (the latents are extracted on a sqrt(n) x sqrt(n) grid)
+  num_heads: 8                  # attention heads of the transformer blocks
+  expansion: 2                  # MLP expansion in the transformer blocks
+  num_transformer_layers: 2
+
+# --- Optimization -----------------------------------------------------------------------------
+optimization:
+  num_epochs: 50
+  batch_size: 64
+  optimizer: adam               # sgd | adam
+  optimizer_lr: 0.0001
+  optimizer_momentum: 0.9       # sgd only
+  optimizer_weight_decay: 0.001
+  optimizer_float_16: false     # mixed precision, used only when a GPU is available
+  lr_scheduler: poly
+  lr_scheduler_power: 0.9
+
+# --- Loss -------------------------------------------------------------------------------------
+loss:
+  # [OPEN] total = weight_semseg * CE + weight_depth * depth_loss (+ weight_aux * model auxiliary losses).
+  # The weights apply to single-task runs too. Per-task losses are always logged separately.
+  loss_weight_semseg: 0.5
+  loss_weight_depth: 0.5
+  loss_weight_aux: 1.0          # only used by models that define auxiliary losses (e.g. bin centers)
+  depth_loss: l1                # l1 | l2, over valid ground-truth pixels only
+  # Divide the depth residual by the dataset's depth_meters_stddev (29.1264 m) before computing L1/L2.
+  # Without this, raw meters-scale depth loss (O(1-10) m) dwarfs cross-entropy (O(0.1-2) nats) under equal
+  # loss weights, so depth dominates the total gradient and hurts segmentation ("negative transfer") even
+  # though loss_weight_semseg/depth are nominally equal. Normalizing makes the configured weights meaningful.
+  # Only affects the training loss; metrics_task_depth/* are always reported in meters.
+  normalize_depth_loss: true
+
+# --- Augmentation -----------------------------------------------------------------------------
+augmentation:
+  aug_input_crop_size: 256      # [OPEN] training crop
+  aug_geom_scale_min: 1.0
+  aug_geom_scale_max: 1.0
+  aug_geom_tilt_max_deg: 0.0
+  aug_geom_wiggle_max_ratio: 0.0
+  aug_geom_reflect: false
+
+# --- Lightning trainer ------------------------------------------------------------------------
+trainer:
+  accelerator: auto             # auto | cpu | gpu
+  devices: auto                 # auto or a number of devices (the code assumes a single device)
+  log_every_n_steps: 50
+  num_sanity_val_steps: 1
+  # Debug only: null = use everything; an int = number of batches; a float = fraction of the dataset.
+  limit_train_batches: null
+  limit_val_batches: null
+  limit_test_batches: null
+  # Logged metric that selects the best checkpoint. This is an internal convenience for the joint/branched
+  # runs (ModelCheckpoint needs one scalar; mIoU and SI-logRMSE are on different scales/directions) - it is
+  # NOT one of this project's reported metrics (those are per-task mIoU and SI-logRMSE, see doc/descrizione
+  # progetto .txt). metrics_summary/total = mean over active tasks of max(mIoU-50,0) and max(50-SILogRMSE,0):
+  # it is 0 (no signal) until a task passes 50 mIoU, so it only makes sense once a run is well past that point.
+  # For single-task runs, or short/early runs, monitor metrics_task_semseg/mean_iou (max) or
+  # metrics_task_depth/si_log_rmse (min) directly instead.
+  checkpoint_monitor: metrics_summary/total #metrics_task_semseg/mean_iou for semseg task, metrics_task_depth/si_log_rmse for depth task
+  checkpoint_mode: max           # si_log_rmse is an error metric: lower is better (mean_iou would need max)
+  save_last_checkpoint: true    # also keep last.ckpt, needed to resume training (doubles checkpoint disk usage)
+  test_after_fit: true          # write test-split predictions with the best checkpoint (no test metrics)
+
+# --- Weights & Biases -------------------------------------------------------------------------
+wandb:
+  mode: online                  # online | offline (sync later) | disabled (no W&B logger, local CSV only)
+  project: AI_in_industry
+  entity: null                  # team/user name, or null for the default account
+  group: null                   # groups related runs (e.g. "joint" seeds) for comparison in the W&B UI
+  tags: []
+  notes: null
+  # File holding the API key (never commit a real key). The WANDB_API_KEY environment variable wins.
+  key_file: wandb.key
+
+# --- Visualization (W&B images of predictions) ------------------------------------------------
+visualization:
+  num_steps_visualization_first: 100
+  num_steps_visualization_interval: 1000
+  visualize_num_samples_in_batch: 8
+  visualize_img_grid_width: 8
+  observe_train_ids: [0, 100]
+  observe_valid_ids: [0, 100]

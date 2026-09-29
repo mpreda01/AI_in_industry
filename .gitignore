@@ -1,4 +1,13 @@
-/industry_venv
+*.pyc
 __pycache__/
-*.py[cod]
-*$py.class
+.pytest_cache/
+CLAUDE.md
+# run outputs, checkpoints and experiment tracking (never commit data or checkpoints)
+outputs/
+wandb/
+*.ckpt
+lightning_logs/
+
+# secrets
+wandb.key
+

@@ -2,7 +2,16 @@
 #
 # Cityscapes labels
 #
+# Source: cityscapesscripts/helpers/labels.py from
+#   https://github.com/mcordts/cityscapesScripts (branch: master)
+# License: MIT, Copyright (c) 2022 The Cityscapes Authors.
+# Full license text kept at licenses/cityscapesScripts-LICENSE.txt in this repo.
+# File fetched verbatim; only this attribution block was added on top.
+#
+# Used by preprocess_synscapes.py to build the labelId -> trainId LUT (Synscapes'
+# img/class/ PNGs follow the Cityscapes id convention, same as this file's 'id' field).
 
+from __future__ import print_function, absolute_import, division
 from collections import namedtuple
 
 

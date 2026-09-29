@@ -1,0 +1,27 @@
+# Latest releases on PyPI as of 2026-09-19, pinned for reproducibility.
+# Requires Python >= 3.11 (matplotlib and numpy need it; torch, torchvision, lightning and
+# wandb need >= 3.10). The old "py39" environment cannot install this file.
+#
+# numpy is pinned to 2.4.6 rather than the newer 2.5.x line specifically because the DISI
+# cluster's giano node only has Python 3.11 (no 3.12+ interpreter found there) and numpy
+# 2.5.0+ requires Python >= 3.12. Confirmed on PyPI that 2.4.6 needs only >= 3.11 and has no
+# conflict with the other pins here (torch declares no numpy constraint; matplotlib needs
+# only numpy >= 1.25). Revisit this pin if a Python >= 3.12 environment becomes available.
+#
+# NOTE: torch from PyPI ships CUDA runtime libraries; check that the cluster GPU driver supports them.
+# If it does not, install torch/torchvision from the matching https://download.pytorch.org/whl/cuXXX index instead.
+torch==2.14.0
+torchvision==0.29.0
+pytorch-lightning==2.6.6
+wandb==0.30.0
+numpy==2.4.6
+Pillow==12.3.0
+matplotlib==3.11.2
+tqdm==4.70.1
+PyYAML==6.0.3
+pytest==9.1.1
+
+
+opencv-python-headless==5.0.0.93  
+imageio==2.37.4                   
+OpenEXR==3.5.0
