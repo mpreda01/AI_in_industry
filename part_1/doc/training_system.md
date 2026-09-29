@@ -38,7 +38,7 @@ There is one experiment class for all cases. What changes between experiments is
 | 0. Single-task baseline (depth) | `[depth]` | `deeplabv3p` |
 | 1. Joint (shared encoder/ASPP/decoder, n+1 channels) | `[semseg, depth]` | `deeplabv3p` |
 | 2. Branched (shared encoder, per-task ASPP + decoder) | `[semseg, depth]` | `deeplabv3p_multitask` |
-| 3. Depth as classification with adaptive bins | `[depth]` | `adaptive_depth` (**model still a stub**) |
+| 3. Depth as classification with adaptive bins | `[depth]` | `adaptive_depth` (bin logic implemented) |
 
 Unsupported combinations are rejected at start-up (e.g. `adaptive_depth` with `[semseg, depth]`).
 
@@ -248,8 +248,7 @@ Changes made when building this system:
 
 Known gaps (not addressed here):
 
-* `ModelAdaptiveDepth` (the bin logic) and `SelfAttention` are still template stubs; `SILogLoss` is a stub, so the depth
-  loss is L1/L2 for now.
+* `SILogLoss` is a stub, so the depth loss is L1/L2 for now.
 * The reported SI-logRMSE in `source/utils/metrics.py` hardcodes lambda = 1 and a x100 scale, and its valid mask has no
   maximum depth; CLAUDE.md asks for lambda as an explicit parameter and a `<= max depth` mask.
 * The depth head is `exp(x)` clamped to [0.1, 300] m and is trained with L1 in meters: far pixels dominate the loss and the

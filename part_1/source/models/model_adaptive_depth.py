@@ -6,10 +6,30 @@ from source.models.model_parts import Encoder, get_encoder_channel_counts, Decod
 
 
 class ModelAdaptiveDepth(torch.nn.Module):
+    """
+    Depth as classification with adaptive bins (AdaBins, Bhat et al. CVPR 2021).
+
+    The DeepLabV3+ decoder produces per-pixel query features. Image-dependent "latents" are extracted by
+    downsampling the queries to a sqrt(num_bins) x sqrt(num_bins) grid and refined with transformer blocks
+    (self-attention among bins). Each latent is projected to a bin width: widths are normalized to sum to 1
+    and scaled to the depth range, so the bin centers (cumulative sum) are ordered and adapt to the scene.
+    Each pixel gets a softmax over bins (dot product between its query and the latents); the depth is the
+    probability-weighted sum of the bin centers.
+
+    Besides ``depth`` the forward returns ``bin_centers`` (B, num_bins), used by ``compute_aux_losses``
+    (chamfer loss between bin centers and ground-truth depths, as in AdaBins).
+    """
+
+    MIN_DEPTH = 0.1
+    MAX_DEPTH = 300.0
+    AUX_MAX_PIXELS = 4096  # ground-truth pixels sampled per image for the chamfer loss
+
     def __init__(self, cfg, outputs_desc):
         super().__init__()
         self.outputs_desc = outputs_desc
-        ch_out = sum(outputs_desc.values())
+        assert list(outputs_desc) == ['depth'] and outputs_desc['depth'] == 1, 'adaptive_depth predicts depth only'
+        self.num_bins = cfg.num_bins
+        dim = 256
 
         self.encoder = Encoder(
             cfg.model_encoder_name,
@@ -20,49 +40,69 @@ class ModelAdaptiveDepth(torch.nn.Module):
 
         ch_out_encoder_bottleneck, ch_out_encoder_4x = get_encoder_channel_counts(cfg.model_encoder_name)
 
-        self.decoder = DecoderDeeplabV3p(ch_out_encoder_bottleneck, ch_out_encoder_4x, 256)
+        self.decoder = DecoderDeeplabV3p(ch_out_encoder_bottleneck, ch_out_encoder_4x, dim)
 
-        self.conv3x3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        self.conv3x3 = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1)
 
-
-        self.latents = nn.Parameter(torch.randn(1, cfg.num_bins, 256), requires_grad=True)
-        depth_values = torch.linspace(0.1, 100.0, cfg.num_bins).view(1, cfg.num_bins, 1, 1)
-        self.depth_values = nn.Parameter(depth_values, requires_grad=False)
+        self.latents_extractor = LatentsExtractor(cfg.num_bins)
+        # learnable positional embedding: gives each latent an identity (bins are ordered)
+        self.pos_embed = nn.Parameter(torch.randn(1, cfg.num_bins, dim) * 0.02)
+        self.transformer = nn.ModuleList([
+            TransformerBlock(dim, num_heads=cfg.num_heads, expansion=cfg.expansion)
+            for _ in range(cfg.num_transformer_layers)
+        ])
+        self.latents_norm = nn.LayerNorm(dim)
+        self.width_head = nn.Sequential(nn.Linear(dim, dim), nn.GELU(), nn.Linear(dim, 1))
 
     def forward(self, x):
         B, _, H, W = x.shape
         input_resolution = (H, W)
 
         features = self.encoder(x)
-
-        lowest_scale = max(features.keys())
-
-        features_lowest = features[lowest_scale]
-
+        features_lowest = features[max(features.keys())]
         features_4x, _ = self.decoder(features_lowest, features[4])
 
-        queries = self.conv3x3(features_4x)
+        queries = self.conv3x3(features_4x)  # B C h w
 
-        # TODO: Implement the adaptive extraction of bins and depth computation
-        # 1. extract "latents" (i.e., learnable bins) with LatentsExtractor
-        # 2. process them with a few layers of TrasformerBlocks
-        # 3. for each latent, project it to a scalar value to obtain the depth
-        #    value each corresponds to (which is learnable based on the image)
-        # 4. for each pixel, compute the probabilities that it belongs to one of 
-        #    the bins: softmax of the dot product between queries and latents
-        # The predefined depth_values and latents, will become learnable and 
-        # determined by the specific input
-        similarity = torch.einsum("bcij,bnc->bnij", queries, self.latents.repeat(B, 1, 1))
-        predictions_4x = (F.softmax(similarity, dim=1) * self.depth_values.repeat(B, 1, 1, 1)).sum(dim=1, keepdim=True)
+        # 1. adaptive latents: extracted from the image itself
+        latents = self.latents_extractor(queries)  # B N C
+        # 2. self-attention among latents
+        pos_embed = self.pos_embed.expand(B, -1, -1)
+        for block in self.transformer:
+            latents = block(latents, pos_embed)
+        latents = self.latents_norm(latents)
+
+        # 3. latent -> bin width -> bin centers within [MIN_DEPTH, MAX_DEPTH]
+        widths = F.softmax(self.width_head(latents).squeeze(-1), dim=1)  # B N, sums to 1
+        widths = (self.MAX_DEPTH - self.MIN_DEPTH) * widths
+        edges = self.MIN_DEPTH + torch.cumsum(widths, dim=1)
+        bin_centers = edges - 0.5 * widths  # B N
+
+        # 4. per-pixel probabilities over bins and expected depth
+        similarity = torch.einsum("bcij,bnc->bnij", queries, latents) / queries.shape[1] ** 0.5
+        probabilities = F.softmax(similarity, dim=1)
+        predictions_4x = (probabilities * bin_centers[:, :, None, None]).sum(dim=1, keepdim=True)
 
         predictions_1x = F.interpolate(predictions_4x, size=input_resolution, mode='bilinear', align_corners=False)
 
-        out = {}
-        offset = 0
+        return {'depth': predictions_1x, 'bin_centers': bin_centers}
 
-        for task, num_ch in self.outputs_desc.items():
-            current_precition = predictions_1x[:, offset:offset+num_ch, :, :]
-            out[task] = current_precition
-            offset += num_ch
-
-        return out
+    def compute_aux_losses(self, outputs, batch):
+        """Chamfer distance (both directions) between predicted bin centers and valid ground-truth depths."""
+        centers = outputs['bin_centers']  # B N
+        target = batch['depth'].flatten(1)  # B P
+        loss = centers.new_zeros(())
+        count = 0
+        for c, t in zip(centers, target):
+            t = t[torch.isfinite(t) & (t > 0)].to(c.dtype)
+            if t.numel() == 0:
+                continue
+            if t.numel() > self.AUX_MAX_PIXELS:
+                t = t[torch.randint(0, t.numel(), (self.AUX_MAX_PIXELS,), device=t.device)]
+            dist = (c[:, None] - t[None, :]).abs()  # N P
+            loss = loss + dist.min(dim=0).values.mean() + dist.min(dim=1).values.mean()
+            count += 1
+        if count == 0:
+            return {'bin_centers': centers.sum() * 0.0}
+        # meters -> O(1) scale like the other losses
+        return {'bin_centers': loss / count / self.MAX_DEPTH}

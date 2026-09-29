@@ -212,36 +212,35 @@ class MLP(torch.nn.Module):
 class SelfAttention(torch.nn.Module):
     def __init__(self, dim, num_heads=4, dropout=0.0):
         super().__init__()
+        assert dim % num_heads == 0, "dim must be divisible by num_heads"
+        self.dim = dim
         self.num_heads = num_heads
+        self.norm = nn.LayerNorm(dim)
+        self.qkv = nn.Linear(dim, 3 * dim)
         self.out = nn.Linear(dim, dim)
         self.temperature = 1.0
         self.dropout = nn.Dropout(dropout)
 
-        # TODO: Implement self attention, you need a projection
-        # and the normalization layer
-        
-    def forward(self, x, pos_embed):
+    def forward(self, x, pos_embed=None):
         """
         Pre-normalziation style self-attetion
         :param x: batched tokens with dimesion dim (B,N,C)
-        :param pos_embed: batched positional with shape (B, N, C)
+        :param pos_embed: batched positional with shape (B, N, C), or None
         :return: tensor processed with output shape same as input
         """
         B, N, C = x.shape
+        H = self.num_heads
 
-        # TODO: Implement self attention, you need:
-        # 1. obtain query, key, value
-        # 2. if positional embed is not none add to the query tensor
-        # 3. compute the similairty between query and key (dot product)
-        # 4. obtain the convex combination of the values based on softmax of similarity
-        # Remember that the num_heads speciifc the number of indepdendt heads to unpack
-        # the operation in. Namely 2 heads, means that the channels are unpacked into 
-        # 2 independent: something.reshape(B, N, self.num_heads, C // self.num_heads)
-        # and rearrange accordingly to perform the operation such that you work only with
-        # N and self.dim // self.num_heads
-        # Remember that also the positional embedding needs to follow a similar rearrangement
-        # to be consistent with the shapes of the query
-        # Remember to rearrange the output tensor such that the output shape is B N C again
+        q, k, v = self.qkv(self.norm(x)).chunk(3, dim=-1)
+        if pos_embed is not None:
+            q = q + pos_embed
+
+        q, k, v = (t.reshape(B, N, H, C // H).transpose(1, 2) for t in (q, k, v))  # B H N C/H
+
+        similarity = q @ k.transpose(-2, -1) * (C // H) ** -0.5 / self.temperature  # B H N N
+        attention = self.dropout(F.softmax(similarity, dim=-1))
+
+        x = (attention @ v).transpose(1, 2).reshape(B, N, C)
         x = self.out(x)
         return x
 

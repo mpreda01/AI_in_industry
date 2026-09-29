@@ -13,11 +13,11 @@
 
 experiment:
   # Run name: part of the output directory and of the W&B run name.
-  name: branched_deeplabv3p
+  name: adaptive_depth
   # Seeds python, numpy, torch and the dataloader workers. Logged with every run.
   seed: 42
   # Tasks trained by this run: [semseg], [depth] or [semseg, depth].
-  tasks: [semseg, depth]
+  tasks: [depth]
   # Checkpoint (.ckpt) to resume from, or null. A resumed run still writes to a new run directory.
   resume: null
 
@@ -42,7 +42,7 @@ model:
   #   deeplabv3p            tasks [semseg, depth]      : 1. joint (shared encoder/ASPP/decoder, n+1 channels)
   #   deeplabv3p_multitask  tasks [semseg, depth]      : 2. branched (shared encoder, per-task ASPP + decoder)
   #   adaptive_depth        tasks [depth]              : 3. depth as classification with adaptive bins
-  model_name: deeplabv3p_multitask
+  model_name: adaptive_depth
   model_encoder_name: resnet18  # resnet18 | resnet34
   pretrained: false             # [OPEN] ImageNet weights; keep identical across compared runs
 
@@ -105,8 +105,8 @@ trainer:
   # it is 0 (no signal) until a task passes 50 mIoU, so it only makes sense once a run is well past that point.
   # For single-task runs, or short/early runs, monitor metrics_task_semseg/mean_iou (max) or
   # metrics_task_depth/si_log_rmse (min) directly instead.
-  checkpoint_monitor: metrics_summary/total #metrics_task_semseg/mean_iou for semseg task, metrics_task_depth/si_log_rmse for depth task
-  checkpoint_mode: max           # si_log_rmse is an error metric: lower is better (mean_iou would need max)
+  checkpoint_monitor: metrics_task_depth/si_log_rmse #metrics_task_semseg/mean_iou for semseg task, metrics_task_depth/si_log_rmse for depth task
+  checkpoint_mode: min           # si_log_rmse is an error metric: lower is better (mean_iou would need max)
   save_last_checkpoint: true    # also keep last.ckpt, needed to resume training (doubles checkpoint disk usage)
   test_after_fit: true          # write test-split predictions with the best checkpoint (no test metrics)
 
