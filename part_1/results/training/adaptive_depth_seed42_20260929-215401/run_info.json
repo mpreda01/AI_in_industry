@@ -1,0 +1,11 @@
+{
+    "run_name": "adaptive_depth_seed42_20260929-215401",
+    "seed": 42,
+    "timestamp": "2026-09-29T21:54:02",
+    "git_commit": "2bd9a97e32fb39896982a6543e8288f10ee30185",
+    "git_dirty": true,
+    "host": "ws2gpu1-ng",
+    "python": "3.11.2",
+    "torch": "2.14.0+cu126",
+    "cuda_device": "NVIDIA GeForce RTX 2080 Ti"
+}

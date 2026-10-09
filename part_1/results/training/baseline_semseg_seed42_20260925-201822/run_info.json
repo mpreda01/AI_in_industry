@@ -1,0 +1,11 @@
+{
+    "run_name": "baseline_semseg_seed42_20260925-201822",
+    "seed": 42,
+    "timestamp": "2026-09-25T20:18:22",
+    "git_commit": "a6b1c2e2a4bf5ab1f1d24372e4f99348a01a8e79",
+    "git_dirty": true,
+    "host": "ws1gpu1-ng",
+    "python": "3.11.2",
+    "torch": "2.14.0+cu126",
+    "cuda_device": "NVIDIA GeForce RTX 2080 Ti"
+}

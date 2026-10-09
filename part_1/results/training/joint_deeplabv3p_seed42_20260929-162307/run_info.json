@@ -1,0 +1,11 @@
+{
+    "run_name": "joint_deeplabv3p_seed42_20260929-162307",
+    "seed": 42,
+    "timestamp": "2026-09-29T16:23:07",
+    "git_commit": "513ea405f47cefbfedcf93b1e6d889497663730e",
+    "git_dirty": true,
+    "host": "ws1gpu2-ng",
+    "python": "3.11.2",
+    "torch": "2.14.0+cu126",
+    "cuda_device": "NVIDIA GeForce RTX 2080 Ti"
+}

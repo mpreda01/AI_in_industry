@@ -1,0 +1,28 @@
+{
+    "monitor": "metrics_task_depth/si_log_rmse",
+    "best_model_path": "/scratch.hpc/matteo.preda/industry/runs/adaptive_depth_seed42_20260929-215401/checkpoints/best-epoch10.ckpt",
+    "best_model_score": 47.20341541278417,
+    "last_epoch_metrics": {
+        "loss_train/depth": 0.1565013825893402,
+        "loss_train/aux_bin_centers": 0.009369386360049248,
+        "loss_train/total": 0.0876200795173645,
+        "loss_val/depth": 2.7011327743530273,
+        "loss_val/aux_bin_centers": 0.032313212752342224,
+        "loss_val/total": 1.3828790187835693,
+        "metrics_summary/depth": 0.0,
+        "metrics_task_depth/log_mae": 1.7259695444647034,
+        "metrics_task_depth/mae": 78.29484688421105,
+        "metrics_task_depth/rmse": 80.35607542353492,
+        "metrics_task_depth/rel": 6.339295456290393,
+        "metrics_task_depth/rel_squared": 64.32565270732537,
+        "metrics_task_depth/delta1": 3.0589358590408,
+        "metrics_task_depth/delta2": 6.864279504007698,
+        "metrics_task_depth/delta3": 11.942697555947893,
+        "metrics_task_depth/inv_mae": 0.06372612590516273,
+        "metrics_task_depth/inv_rmse": 0.08135074349296242,
+        "metrics_task_depth/log_rmse": 1.8865131708609675,
+        "metrics_task_depth/si_log_rmse": 76.96187566514328,
+        "metrics_summary/total": 0.0,
+        "trainer/LR": 1.000000013351432e-10
+    }
+}

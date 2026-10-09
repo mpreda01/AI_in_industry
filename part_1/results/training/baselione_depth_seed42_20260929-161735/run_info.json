@@ -1,0 +1,11 @@
+{
+    "run_name": "baselione_depth_seed42_20260929-161735",
+    "seed": 42,
+    "timestamp": "2026-09-29T16:17:35",
+    "git_commit": "2948bb4d3f4f5e863f8b4f7c74bcf9bcf3fc7ce9",
+    "git_dirty": true,
+    "host": "ws1gpu1-ng",
+    "python": "3.11.2",
+    "torch": "2.14.0+cu126",
+    "cuda_device": "NVIDIA GeForce RTX 2080 Ti"
+}

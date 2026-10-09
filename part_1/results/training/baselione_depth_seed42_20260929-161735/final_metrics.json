@@ -1,0 +1,26 @@
+{
+    "monitor": "metrics_task_depth/si_log_rmse",
+    "best_model_path": "/scratch.hpc/matteo.preda/industry/runs/baselione_depth_seed42_20260929-161735/checkpoints/best-epoch48.ckpt",
+    "best_model_score": 19.691260534872065,
+    "last_epoch_metrics": {
+        "loss_train/depth": 0.16786235570907593,
+        "loss_train/total": 0.08393117785453796,
+        "loss_val/depth": 0.12745903432369232,
+        "loss_val/total": 0.06372951716184616,
+        "metrics_summary/depth": 30.127936997696768,
+        "metrics_task_depth/log_mae": 0.12215936412741418,
+        "metrics_task_depth/mae": 3.741722173481736,
+        "metrics_task_depth/rmse": 9.11644497738755,
+        "metrics_task_depth/rel": 0.13451768617869822,
+        "metrics_task_depth/rel_squared": 0.10325089235000239,
+        "metrics_task_depth/delta1": 86.00057276578167,
+        "metrics_task_depth/delta2": 95.4339889621992,
+        "metrics_task_depth/delta3": 98.00742124970311,
+        "metrics_task_depth/inv_mae": 0.008299157956302776,
+        "metrics_task_depth/inv_rmse": 0.014669519741274303,
+        "metrics_task_depth/log_rmse": 0.20211901380507621,
+        "metrics_task_depth/si_log_rmse": 19.872063002303232,
+        "metrics_summary/total": 30.127936997696768,
+        "trainer/LR": 1.000000013351432e-10
+    }
+}
