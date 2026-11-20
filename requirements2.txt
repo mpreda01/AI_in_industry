@@ -1,0 +1,8 @@
+vispy
+numpy==1.23.5
+h5py==3.2.1
+PyYAML==5.3.1
+git+https://github.com/erikwijmans/Pointnet2_PyTorch.git#egg=pointnet2_ops&subdirectory=pointnet2_ops_lib
+Shapely==1.7.1
+numba==0.53.0
+wandb==0.10.28
